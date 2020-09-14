@@ -588,12 +588,27 @@ value dot ctx (bp, pos) buf strm =
   ]
 ;
 
+value is_uppercase s = String.uppercase_ascii s = s;
+value is_only_lowercase s = String.lowercase_ascii s = s && not(is_uppercase s);
+value jrh_uident id =
+  if is_uppercase (String.sub id 0 1) &&
+     is_only_lowercase (String.sub id 1 (String.length id - 1)) then
+    ("UIDENT", id)
+  else ("LIDENT", id)
+;
+
+value rec qstring ctx bp =
+  lexer
+  [ "`"/
+  | (any ctx) (qstring ctx bp)!
+  | -> err ctx (bp, $pos) "quotation not terminated" ]
+;
 
 value next_token_after_spaces ctx bp =
   lexer
   [ 'A'-'Z' ident! ->
       let id = $buf in
-      try ("", ctx.find_kwd id) with [ Not_found -> ("UIDENT", id) ]
+      try ("", ctx.find_kwd id) with [ Not_found -> jrh_uident id ]
   | greek_letter ident! -> ("GIDENT", $buf)
   | [ 'a'-'z' | '_' | misc_letter ] ident! (keyword ctx)
   | '1'-'9' number!
@@ -605,6 +620,7 @@ value next_token_after_spaces ctx bp =
   | "'"/ (char ctx bp) -> ("CHAR", $buf)
   | "'" -> keyword_or_error ctx (bp, $pos) "'"
   | "\""/ (string ctx bp)! -> ("STRING", $buf)
+  | "`"/ (qstring ctx bp)! -> ("QUOTATION", "tot:" ^ $buf)
   | "$"/ (dollar ctx bp)!
   | [ '!' | '=' | '@' | '^' | '&' | '+' | '-' | '*' | '/' | '%' ] ident2! ->
       keyword_or_error ctx (bp, $pos) $buf

@@ -16,7 +16,7 @@ PACKAGES := $(PACKAGES)
 SYNTAX := camlp5r
 
 ML=\
-	hollexer.ml pa_hol_ocaml.ml pa_hol_ocaml_oop.ml \
+	hollexer.ml pa_hol_ocaml.ml pa_hol_ocaml_oop.ml hol_quotations.ml \
 
 CMO := $(ML:.ml=.cmo)
 CMI := $(ML:.ml=.cmi)

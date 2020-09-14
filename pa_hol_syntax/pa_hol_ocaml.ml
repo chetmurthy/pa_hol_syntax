@@ -91,6 +91,12 @@ value mklistpat loc last =
         <:patt< [$p1$ :: $loop False pl$] >> ]
 ;
 
+value special_op_ht = Hashtbl.create 73;
+value is_operator x = is_operator x || Hashtbl.mem special_op_ht x ;
+value translate_operator x =
+  try Hashtbl.find special_op_ht x
+  with Not_found -> x ;
+
 value operator_rparen_f strm =
   let id x = x in
   let app suff s = s^suff in 
@@ -123,7 +129,7 @@ value operator_rparen_f strm =
     | (n, Right f) -> (n, Right f)
     ]) trials in
   let (n, tok) = check_stream matchers strm in
-  do { for i = 1 to n do { Stream.junk strm } ; tok }
+  do { for i = 1 to n do { Stream.junk strm } ; translate_operator tok }
 ;
 
 value operator_rparen =
@@ -2343,3 +2349,46 @@ END;
 
 Pcaml.add_option "-no_quot" (Arg.Set Hollexer.no_quotations)
   "Don't parse quotations, allowing to use, e.g. \"<:>\" as token";
+
+(* ------------------------------------------------------------------------- *)
+(* Added by JRH ***                                                          *)
+(* ------------------------------------------------------------------------- *)
+
+List.iter (fun (k, v) ->
+    Hashtbl.add special_op_ht k v)
+  [ ("o", "o")
+  ; ("upto", "upto")
+  ; ("THEN", "then_")
+  ; ("THENC", "thenc_")
+  ; ("THENL", "thenl_")
+  ; ("ORELSE", "orelse_")
+  ; ("ORELSEC", "orelsec_")
+  ; ("THEN_TCL", "then_tcl_")
+  ; ("ORELSE_TCL", "orelse_tcl_")
+  ; ("F_F", "f_f_")
+  ]
+;
+
+EXTEND
+  expr: AFTER "<"
+   [[ f = expr; "o"; g = expr -> <:expr< ((o $f$) $g$) >>
+    | f = expr; "upto"; g = expr -> <:expr< ((upto $f$) $g$) >>
+    | f = expr; "F_F"; g = expr -> <:expr< ((f_f_ $f$) $g$) >>
+    | f = expr; "THENC"; g = expr -> <:expr< ((thenc_ $f$) $g$) >>
+    | f = expr; "THEN"; g = expr -> <:expr< ((then_ $f$) $g$) >>
+    | f = expr; "THENL"; g = expr -> <:expr< ((thenl_ $f$) $g$) >>
+    | f = expr; "ORELSE"; g = expr -> <:expr< ((orelse_ $f$) $g$) >>
+    | f = expr; "ORELSEC"; g = expr -> <:expr< ((orelsec_ $f$) $g$) >>
+    | f = expr; "THEN_TCL"; g = expr -> <:expr< ((then_tcl_ $f$) $g$) >>
+    | f = expr; "ORELSE_TCL"; g = expr -> <:expr< ((orelse_tcl_ $f$) $g$) >>
+]];
+END;
+
+EXTEND
+  top_phrase:
+   [ [ sti = str_item; ";;" ->
+         match sti with
+         [ <:str_item< $exp:e$ >> -> Some <:str_item< value it = $e$ >>
+         | x -> Some x ] ] ]
+  ;
+END;

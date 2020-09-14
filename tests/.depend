@@ -1,0 +1,13 @@
+: 
+ex_ast.cmo :
+ex_ast.cmx :
+ex_migrate.cmo : \
+    ex_ast.cmo
+ex_migrate.cmx : \
+    ex_ast.cmx
+test_ex.cmo : \
+    ex_migrate.cmo \
+    ex_ast.cmo
+test_ex.cmx : \
+    ex_migrate.cmx \
+    ex_ast.cmx
