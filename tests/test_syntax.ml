@@ -39,6 +39,9 @@ let test1 ctxt =
     (pa1 {| (o) e1 e2 |}) (pa1 {| e1 o e2 |})
 ; assert_equal ~cmp:eq_str_item_option
     (pa_top_phrase {| let it = e1 ;; |}) (pa_top_phrase {| e1 ;; |})
+; assert_str_item_equal
+    (let loc = Ploc.dummy in <:str_item< Formula.True >>)
+    (pa1 {| Formula.True |})
 ;;
 
 let suite = "test_syntax" >::: [
