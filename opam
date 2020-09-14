@@ -1,0 +1,50 @@
+version: "0.01"
+synopsis: "Syntax support for HOL-Light"
+description:
+"""
+This package provides OCaml syntax support for HOL-Light.
+
+"""
+opam-version: "2.0"
+maintainer: "Chet Murthy <chetsky@gmail.com>"
+authors: ["Chet Murthy"]
+homepage: "https://github.com/chetmurthy/pa_hol_syntax"
+license: "BSD-3-Clause"
+bug-reports: "https://github.com/chetmurthy/pa_hol_syntax/issues"
+dev-repo: "git+https://github.com/chetmurthy/pa_hol_syntax.git"
+doc: "https://github.com/chetmurthy/pa_hol_syntax/doc"
+
+depends: [
+  "ocaml"       { >= "4.10.0" & < "4.12.0" }
+  "camlp5"      { >= "8.00~alpha04" }
+  "not-ocamlfind" { >= "0.01" }
+  "bos" { >= "0.2.0" }
+]
+depexts: [
+  [
+    "libstring-shellquote-perl"
+    "libipc-system-simple-perl"
+  ] {os-family = "debian"}
+  [
+    "perl-string-shellquote"
+    "perl-ipc-system-simple"
+  ] {os-distribution = "alpine"}
+  [
+    "perl-String-ShellQuote"
+    "perl-IPC-System-Simple"
+  ] {os-distribution = "centos"}
+  [
+    "perl-String-ShellQuote"
+    "perl-IPC-System-Simple"
+  ] {os-family = "suse"}
+  [
+    "perl-String-ShellQuote"
+    "perl-IPC-System-Simple"
+  ] {os-family = "fedora"}
+]
+
+build: [
+  [make "sys"]
+  [make "test"]
+]
+install: [make "install"]
