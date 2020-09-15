@@ -40,8 +40,11 @@ let test1 ctxt =
 ; assert_equal ~cmp:eq_str_item_option
     (pa_top_phrase {| let it = e1 ;; |}) (pa_top_phrase {| e1 ;; |})
 ; assert_str_item_equal
-    (let loc = Ploc.dummy in <:str_item< Formula.True >>)
+    (let loc = Ploc.dummy in <:str_item< Formula.True_ >>)
     (pa1 {| Formula.True |})
+; assert_str_item_equal
+    (let loc = Ploc.dummy in <:str_item< fun [ Formula.True_ -> 1 ] >>)
+    (pa1 {| fun Formula.True -> 1 |})
 ;;
 
 let suite = "test_syntax" >::: [
