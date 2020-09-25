@@ -19,6 +19,7 @@ depends: [
   "camlp5"      { >= "8.00~alpha04" }
   "not-ocamlfind" { >= "0.01" }
   "bos" { >= "0.2.0" }
+  "ounit2" { >= "2.2.3" }
 ]
 depexts: [
   [
