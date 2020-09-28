@@ -35,7 +35,7 @@ test_syntax.byte: test_syntax.cmo
 clean::
 	rm -f  *.ppo.*
 
-EXTERNAL := $(shell $(OCAMLFIND) query -predicates byte -format '%m' $(ALL_PACKAGES))
+EXTERNAL := $(shell $(OCAMLFIND) query -predicates byte -format '%m' $(ALL_PACKAGES) | grep local-install)
 $(CMO): $(EXTERNAL)
 
 depend::
