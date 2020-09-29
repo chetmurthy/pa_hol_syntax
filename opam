@@ -8,11 +8,11 @@ This package provides OCaml syntax support for HOL-Light.
 opam-version: "2.0"
 maintainer: "Chet Murthy <chetsky@gmail.com>"
 authors: ["Chet Murthy"]
-homepage: "https://github.com/chetmurthy/pa_hol_syntax"
+homepage: "https://github.com/camlp5/pa_hol_syntax"
 license: "BSD-3-Clause"
-bug-reports: "https://github.com/chetmurthy/pa_hol_syntax/issues"
-dev-repo: "git+https://github.com/chetmurthy/pa_hol_syntax.git"
-doc: "https://github.com/chetmurthy/pa_hol_syntax/doc"
+bug-reports: "https://github.com/camlp5/pa_hol_syntax/issues"
+dev-repo: "git+https://github.com/camlp5/pa_hol_syntax.git"
+doc: "https://github.com/camlp5/pa_hol_syntax/doc"
 
 depends: [
   "ocaml"       { >= "4.10.0" & < "4.12.0" }
