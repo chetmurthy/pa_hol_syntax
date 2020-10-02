@@ -12,7 +12,6 @@ LAUNCH=env TOP=$(TOP) $(TOP)/tools/LAUNCH
 OCAMLFIND=$(LAUNCH) ocamlfind
 NOT_OCAMLFIND=$(LAUNCH) not-ocamlfind
 MKCAMLP5=$(LAUNCH) mkcamlp5
-PACKAGES := $(PACKAGES)
 SYNTAX := camlp5r
 
 ML=\
@@ -28,7 +27,20 @@ all: $(CMO) $(CMX) local-install
 
 doc: $(CMT) $(CMTI)
 
-KITS=$(CMO)
+PARSING_PACKAGES=camlp5.extend,camlp5.macro_gram,camlp5.extend_m,camlp5.quotations
+LEXING_PACKAGES=camlp5.pa_lexer
+
+hollexer.cmx hollexer.cmo: hollexer.ml
+	$(MAKE) -f Makefile.one PACKAGES="$(PACKAGES),$(LEXING_PACKAGES)" $@
+
+hollexer.cmi: hollexer.mli
+	$(MAKE) -f Makefile.one PACKAGES="$(PACKAGES)" $@
+
+pa_hol_ocaml.cmx pa_hol_ocaml.cmo: pa_hol_ocaml.ml
+	$(MAKE) -f Makefile.one PACKAGES="$(PACKAGES),$(PARSING_PACKAGES)" $@
+
+pa_hol_ocaml_oop.cmx pa_hol_ocaml_oop.cmo: pa_hol_ocaml_oop.ml
+	$(MAKE) -f Makefile.one PACKAGES="$(PACKAGES),$(PARSING_PACKAGES)" $@
 
 META: META.pl
 	./META.pl > META
@@ -36,7 +48,7 @@ META: META.pl
 install::
 	mkdir -p $(DESTDIR)/lib
 	./META.pl $(DESTDIR)/lib > META
-	$(NOT_OCAMLFIND) reinstall-if-diff pa_hol_syntax -destdir $(DESTDIR)/lib META $(CMO) $(CMX) $(MLI:.mli=.cmi) $(KITS:.cmo=.o) $(CMI) $(wildcard *.cmt*)
+	$(NOT_OCAMLFIND) reinstall-if-diff pa_hol_syntax -destdir $(DESTDIR)/lib META $(CMO) $(CMO:.cmo=.o) $(CMX) $(MLI:.mli=.cmi) $(CMI) $(wildcard *.cmt*)
 	$(RM) -f META
 
 local-install::
@@ -50,7 +62,8 @@ $(CMO) $(CMI) $(CMX): $(EXTERNAL)
 
 depend::
 	echo "$(CMO) $(CMI) $(CMX): $(EXTERNAL)" > .depend.NEW
-	$(OCAMLFIND) ocamldep $(DEBUG) -package $(PACKAGES) -syntax camlp5r *.ml *.mli >> .depend.NEW \
-		&& mv .depend.NEW .depend
+	$(OCAMLFIND) ocamldep $(DEBUG) -package $(PACKAGES),$(PARSING_PACKAGES) -syntax camlp5r pa*.ml *.mli >> .depend.NEW
+	$(OCAMLFIND) ocamldep $(DEBUG) -package $(PACKAGES),$(LEXING_PACKAGES) -syntax camlp5r hollexer.ml >> .depend.NEW
+	mv .depend.NEW .depend
 
 -include .depend

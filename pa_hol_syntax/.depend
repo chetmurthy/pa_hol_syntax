@@ -1,14 +1,18 @@
 hollexer.cmo pa_hol_ocaml.cmo pa_hol_ocaml_oop.cmo hol_quotations.cmo hollexer.cmi pa_hol_ocaml.cmi pa_hol_ocaml_oop.cmi hol_quotations.cmi hollexer.cmx pa_hol_ocaml.cmx pa_hol_ocaml_oop.cmx hol_quotations.cmx: 
-hol_quotations.cmo :
-hol_quotations.cmx :
-hollexer.cmo : \
-    hollexer.cmi
-hollexer.cmx : \
-    hollexer.cmi
 hollexer.cmi :
+pa_hol_ocaml.cmo.ppo.cmo : \
+    hollexer.cmi
+pa_hol_ocaml.cmo.ppo.cmx : \
+    hollexer.cmx
 pa_hol_ocaml.cmo : \
     hollexer.cmi
 pa_hol_ocaml.cmx : \
     hollexer.cmx
+pa_hol_ocaml_oop.cmo.ppo.cmo :
+pa_hol_ocaml_oop.cmo.ppo.cmx :
 pa_hol_ocaml_oop.cmo :
 pa_hol_ocaml_oop.cmx :
+hollexer.cmo : \
+    hollexer.cmi
+hollexer.cmx : \
+    hollexer.cmi

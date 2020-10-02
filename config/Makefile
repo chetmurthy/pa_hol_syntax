@@ -4,13 +4,14 @@
 RM=rm
 
 OCAMLFIND=ocamlfind
+NOT_OCAMLFIND=not-ocamlfind
 OCAMLTOPLEVEL=ocaml
 CAMLP5LIB=$(shell $(OCAMLFIND) query camlp5)
 MKCAMLP5=mkcamlp5
 CAMLP5R=camlp5r -I $(CAMLP5LIB)
 INCLUDES=
 OCAMLCFLAGS=$(DEBUG) $(WARNERR) $(INCLUDES)
-PACKAGES=unix,compiler-libs.common,camlp5.quotations,camlp5.extfun
+PACKAGES=unix,compiler-libs.common,camlp5
 SYNTAX = camlp5r
 
 export PERL5LIB := $(TOP):$(PERL5LIB)
