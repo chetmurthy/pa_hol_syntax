@@ -1,5 +1,5 @@
---- ../../../tmp/camlp5/etc/pa_o.ml	2021-07-02 14:21:06.823824074 -0700
-+++ pa_hol_ocaml.ml	2021-07-02 14:11:35.239963403 -0700
+--- ../../../tmp/camlp5/etc/pa_o.ml	2021-07-02 15:20:23.505317009 -0700
++++ pa_hol_ocaml.ml	2021-07-02 15:21:52.006040943 -0700
 @@ -2,27 +2,22 @@
  (* pa_o.ml,v *)
  (* Copyright (c) INRIA 2007-2017 *)
@@ -59,8 +59,8 @@
  ;
  
  value operator_rparen =
-@@ -678,6 +679,13 @@
-     check_not_colon_f
+@@ -747,6 +748,13 @@
+   <:attribute_body< $attrid:(loc,attrid)$ $str:strpayload$ ; >>
  ;
  
 +value uident_True_True_ = fun [
@@ -73,56 +73,7 @@
  EXTEND
    GLOBAL: sig_item str_item ctyp patt expr module_type
      module_expr longident extended_longident
-@@ -1472,7 +1480,9 @@
-   ;
-   expr_uident:
-     [ RIGHTA
--      [ i = UIDENT -> <:expr< $uid:i$ >>
-+      [ i = UIDENT ->
-+        let i = uident_True_True_ i in
-+        <:expr< $uid:i$ >>
-       | i = UIDENT ; "." ; j = SELF -> expr_left_assoc_acc <:expr< $uid:i$ . $j$ >>
-       | i = UIDENT ; "." ; "("; op = operator_rparen ->
-           if op = "::" then
-@@ -1510,6 +1520,7 @@
-     | li = longident ; "." ; p = patt LEVEL "simple" → 
-       match p with [
-         <:patt< $uid:i$ >> ->
-+        let i = uident_True_True_ i in
-         let li = <:extended_longident< $longid:li$ . $uid:i$ >> in
-         <:patt< $longid:li$ >>
-       | _ -> <:patt< $longid:li$ . $p$ >>
-@@ -1808,17 +1819,25 @@
-   (* Core types *)
-   longident:
-     [ LEFTA
--      [ me1 = SELF; check_dot_uid ; "."; i = V UIDENT "uid" → <:extended_longident< $longid:me1$ . $_uid:i$ >>
--      | i = V UIDENT "uid" → <:extended_longident< $_uid:i$ >>
-+      [ me1 = SELF; check_dot_uid ; "."; i = V UIDENT "uid" →
-+          let i = vala_map uident_True_True_ i in
-+          <:extended_longident< $longid:me1$ . $_uid:i$ >>
-+      | i = V UIDENT "uid" →
-+          let i = vala_map uident_True_True_ i in
-+          <:extended_longident< $_uid:i$ >>
-       ] ]
-   ;
-   extended_longident:
-     [ LEFTA
-       [ me1 = SELF; "(" ; me2 = SELF ; ")" → <:extended_longident< $longid:me1$ ( $longid:me2$ ) >>
--      | me1 = SELF; check_dot_uid ; "."; i = V UIDENT "uid" → <:extended_longident< $longid:me1$ . $_uid:i$ >>
-+      | me1 = SELF; check_dot_uid ; "."; i = V UIDENT "uid" →
-+          let i = vala_map uident_True_True_ i in
-+          <:extended_longident< $longid:me1$ . $_uid:i$ >>
-       ]
-     | "simple"
--      [ i = V UIDENT "uid" → <:extended_longident< $_uid:i$ >>
-+      [ i = V UIDENT "uid" →
-+          let i = vala_map uident_True_True_ i in
-+          <:extended_longident< $_uid:i$ >>
-       ] ]
-   ;
-   ctyp_ident:
-@@ -2341,5 +2360,48 @@
+@@ -2410,5 +2418,48 @@
    ;
  END;
  

@@ -1,5 +1,5 @@
---- ../../../tmp/camlp5/lib/plexer.ml	2021-07-02 14:21:06.831824128 -0700
-+++ hollexer.ml	2021-07-02 14:11:35.239963403 -0700
+--- ../../../tmp/camlp5/lib/plexer.ml	2021-07-02 15:20:23.509317042 -0700
++++ hollexer.ml	2021-07-02 15:21:52.010040976 -0700
 @@ -2,8 +2,6 @@
  (* plexer.ml,v *)
  (* Copyright (c) INRIA 2007-2017 *)
@@ -9,7 +9,7 @@
  open Versdep;
  
  value simplest_raw_strings = ref False ;
-@@ -588,12 +586,27 @@
+@@ -620,12 +618,27 @@
    ]
  ;
  
@@ -38,11 +38,11 @@
    | greek_letter ident! -> ("GIDENT", $buf)
    | [ 'a'-'z' | '_' | misc_letter ] ident! (keyword ctx)
    | '1'-'9' number!
-@@ -605,6 +618,7 @@
+@@ -637,6 +650,7 @@
    | "'"/ (char ctx bp) -> ("CHAR", $buf)
    | "'" -> keyword_or_error ctx (bp, $pos) "'"
    | "\""/ (string ctx bp)! -> ("STRING", $buf)
 +  | "`"/ (qstring ctx bp)! -> ("QUOTATION", "tot:" ^ $buf)
    | "$"/ (dollar ctx bp)!
-   | [ '!' | '=' | '@' | '^' | '&' | '+' | '-' | '*' | '/' | '%' ] ident2! ->
+   | [ '=' | '@' | '^' | '&' | '+' | '-' | '*' | '/' | '%' ] ident2! ->
        keyword_or_error ctx (bp, $pos) $buf
