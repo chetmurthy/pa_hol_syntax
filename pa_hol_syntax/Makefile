@@ -4,6 +4,7 @@
 WD=$(shell pwd)
 TOP=..
 include $(TOP)/config/Makefile
+include $(TOP)/pa_hol_syntax/Makefile.maint
 
 DESTDIR=
 RM=rm

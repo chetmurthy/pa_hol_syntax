@@ -1,0 +1,27 @@
+# This makefile contains targets for maintenance of the source code as
+# Camlp5/Ocaml change.
+#
+# Typically all targets in this file require a cmdline var CAMLP5_SRC
+# to point to the Camlp5 source-tree
+
+diff-sources:
+	rm -rf PATCHES && mkdir -p PATCHES
+	diff -Bwiu $(CAMLP5_SRC)/etc/pa_o.ml pa_hol_ocaml.ml > PATCHES/pa_hol_ocaml.ml.DIFF || true
+	diff -Bwiu $(CAMLP5_SRC)/etc/pa_oop.ml pa_hol_ocaml_oop.ml > PATCHES/pa_hol_ocaml_oop.ml.DIFF || true
+	diff -Bwiu $(CAMLP5_SRC)/lib/plexer.ml hollexer.ml > PATCHES/hollexer.ml.DIFF || true
+	diff -Bwiu $(CAMLP5_SRC)/lib/plexer.mli hollexer.mli > PATCHES/hollexer.mli.DIFF || true
+
+reset-copied-sources:
+	rm -f pa_hol_ocaml.ml pa_hol_ocaml_oop.ml hollexer.ml hollexer.mli
+
+fetch-copied-sources:
+	cp $(CAMLP5_SRC)/etc/pa_o.ml pa_hol_ocaml.ml
+	cp $(CAMLP5_SRC)/etc/pa_oop.ml pa_hol_ocaml_oop.ml
+	cp $(CAMLP5_SRC)/lib/plexer.ml hollexer.ml
+	cp $(CAMLP5_SRC)/lib/plexer.mli hollexer.mli
+
+patch-copied-sources:
+	patch -p1 pa_hol_ocaml.ml < PATCHES/pa_hol_ocaml.ml.DIFF || true
+	patch -p1 pa_hol_ocaml_oop.ml < PATCHES/pa_hol_ocaml_oop.ml.DIFF || true
+	patch -p1 hollexer.ml < PATCHES/hollexer.ml.DIFF || true
+	patch -p1 hollexer.mli < PATCHES/hollexer.mli.DIFF || true

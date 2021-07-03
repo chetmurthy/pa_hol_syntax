@@ -1,0 +1,174 @@
+--- ../../../tmp/camlp5/etc/pa_o.ml	2021-07-02 14:21:06.823824074 -0700
++++ pa_hol_ocaml.ml	2021-07-02 14:11:35.239963403 -0700
+@@ -2,27 +2,22 @@
+ (* pa_o.ml,v *)
+ (* Copyright (c) INRIA 2007-2017 *)
+ 
+-#load "pa_extend.cmo";
+-#load "q_MLast.cmo";
+-#load "pa_macro.cmo";
+-#load "pa_macro_gram.cmo";
+-
+ open Asttools;
+ open Pcaml;
+ open Mlsyntax.Original;
+ 
+-Pcaml.syntax_name.val := "OCaml";
++Pcaml.syntax_name.val := "OCaml-HOL";
+ Pcaml.no_constructors_arity.val := True;
+ 
+ do {
+-  let odfa = Plexer.dollar_for_antiquotation.val in
+-  let osrs = Plexer.simplest_raw_strings.val in
+-  Plexer.dollar_for_antiquotation.val := False;
+-  Plexer.simplest_raw_strings.val := True;
+-  Plexer.utf8_lexing.val := True;
+-  Grammar.Unsafe.gram_reinit gram (Plexer.gmake ());
+-  Plexer.dollar_for_antiquotation.val := odfa;
+-  Plexer.simplest_raw_strings.val := osrs ;
++  let odfa = Hollexer.dollar_for_antiquotation.val in
++  let osrs = Hollexer.simplest_raw_strings.val in
++  Hollexer.dollar_for_antiquotation.val := False;
++  Hollexer.simplest_raw_strings.val := True;
++  Hollexer.utf8_lexing.val := True;
++  Grammar.Unsafe.gram_reinit gram (Hollexer.gmake ());
++  Hollexer.dollar_for_antiquotation.val := odfa;
++  Hollexer.simplest_raw_strings.val := osrs ;
+   Grammar.Unsafe.clear_entry attribute_body;
+   Grammar.Unsafe.clear_entry interf;
+   Grammar.Unsafe.clear_entry implem;
+@@ -91,6 +86,12 @@
+         <:patt< [$p1$ :: $loop False pl$] >> ]
+ ;
+ 
++value special_op_ht = Hashtbl.create 73;
++value is_operator x = is_operator x || Hashtbl.mem special_op_ht x ;
++value translate_operator x =
++  try Hashtbl.find special_op_ht x
++  with Not_found -> x ;
++
+ value operator_rparen_f strm =
+   let id x = x in
+   let app suff s = s^suff in 
+@@ -123,7 +124,7 @@
+     | (n, Right f) -> (n, Right f)
+     ]) trials in
+   let (n, tok) = check_stream matchers strm in
+-  do { for i = 1 to n do { Stream.junk strm } ; tok }
++  do { for i = 1 to n do { Stream.junk strm } ; translate_operator tok }
+ ;
+ 
+ value operator_rparen =
+@@ -678,6 +679,13 @@
+     check_not_colon_f
+ ;
+ 
++value uident_True_True_ = fun [
++  "True" -> "True_"
++| "False" -> "False_"
++| x -> x
++]
++;
++
+ EXTEND
+   GLOBAL: sig_item str_item ctyp patt expr module_type
+     module_expr longident extended_longident
+@@ -1472,7 +1480,9 @@
+   ;
+   expr_uident:
+     [ RIGHTA
+-      [ i = UIDENT -> <:expr< $uid:i$ >>
++      [ i = UIDENT ->
++        let i = uident_True_True_ i in
++        <:expr< $uid:i$ >>
+       | i = UIDENT ; "." ; j = SELF -> expr_left_assoc_acc <:expr< $uid:i$ . $j$ >>
+       | i = UIDENT ; "." ; "("; op = operator_rparen ->
+           if op = "::" then
+@@ -1510,6 +1520,7 @@
+     | li = longident ; "." ; p = patt LEVEL "simple" → 
+       match p with [
+         <:patt< $uid:i$ >> ->
++        let i = uident_True_True_ i in
+         let li = <:extended_longident< $longid:li$ . $uid:i$ >> in
+         <:patt< $longid:li$ >>
+       | _ -> <:patt< $longid:li$ . $p$ >>
+@@ -1808,17 +1819,25 @@
+   (* Core types *)
+   longident:
+     [ LEFTA
+-      [ me1 = SELF; check_dot_uid ; "."; i = V UIDENT "uid" → <:extended_longident< $longid:me1$ . $_uid:i$ >>
+-      | i = V UIDENT "uid" → <:extended_longident< $_uid:i$ >>
++      [ me1 = SELF; check_dot_uid ; "."; i = V UIDENT "uid" →
++          let i = vala_map uident_True_True_ i in
++          <:extended_longident< $longid:me1$ . $_uid:i$ >>
++      | i = V UIDENT "uid" →
++          let i = vala_map uident_True_True_ i in
++          <:extended_longident< $_uid:i$ >>
+       ] ]
+   ;
+   extended_longident:
+     [ LEFTA
+       [ me1 = SELF; "(" ; me2 = SELF ; ")" → <:extended_longident< $longid:me1$ ( $longid:me2$ ) >>
+-      | me1 = SELF; check_dot_uid ; "."; i = V UIDENT "uid" → <:extended_longident< $longid:me1$ . $_uid:i$ >>
++      | me1 = SELF; check_dot_uid ; "."; i = V UIDENT "uid" →
++          let i = vala_map uident_True_True_ i in
++          <:extended_longident< $longid:me1$ . $_uid:i$ >>
+       ]
+     | "simple"
+-      [ i = V UIDENT "uid" → <:extended_longident< $_uid:i$ >>
++      [ i = V UIDENT "uid" →
++          let i = vala_map uident_True_True_ i in
++          <:extended_longident< $_uid:i$ >>
+       ] ]
+   ;
+   ctyp_ident:
+@@ -2341,5 +2360,48 @@
+   ;
+ END;
+ 
+-Pcaml.add_option "-no_quot" (Arg.Set Plexer.no_quotations)
++Pcaml.add_option "-no_quot" (Arg.Set Hollexer.no_quotations)
+   "Don't parse quotations, allowing to use, e.g. \"<:>\" as token";
++
++(* ------------------------------------------------------------------------- *)
++(* Added by JRH ***                                                          *)
++(* ------------------------------------------------------------------------- *)
++
++List.iter (fun (k, v) ->
++    Hashtbl.add special_op_ht k v)
++  [ ("o", "o")
++  ; ("upto", "upto")
++  ; ("THEN", "then_")
++  ; ("THENC", "thenc_")
++  ; ("THENL", "thenl_")
++  ; ("ORELSE", "orelse_")
++  ; ("ORELSEC", "orelsec_")
++  ; ("THEN_TCL", "then_tcl_")
++  ; ("ORELSE_TCL", "orelse_tcl_")
++  ; ("F_F", "f_f_")
++  ]
++;
++
++EXTEND
++  expr: AFTER "<"
++   [[ f = expr; "o"; g = expr -> <:expr< ((o $f$) $g$) >>
++    | f = expr; "upto"; g = expr -> <:expr< ((upto $f$) $g$) >>
++    | f = expr; "F_F"; g = expr -> <:expr< ((f_f_ $f$) $g$) >>
++    | f = expr; "THENC"; g = expr -> <:expr< ((thenc_ $f$) $g$) >>
++    | f = expr; "THEN"; g = expr -> <:expr< ((then_ $f$) $g$) >>
++    | f = expr; "THENL"; g = expr -> <:expr< ((thenl_ $f$) $g$) >>
++    | f = expr; "ORELSE"; g = expr -> <:expr< ((orelse_ $f$) $g$) >>
++    | f = expr; "ORELSEC"; g = expr -> <:expr< ((orelsec_ $f$) $g$) >>
++    | f = expr; "THEN_TCL"; g = expr -> <:expr< ((then_tcl_ $f$) $g$) >>
++    | f = expr; "ORELSE_TCL"; g = expr -> <:expr< ((orelse_tcl_ $f$) $g$) >>
++]];
++END;
++
++EXTEND
++  top_phrase:
++   [ [ sti = str_item; ";;" ->
++         match sti with
++         [ <:str_item< $exp:e$ >> -> Some <:str_item< value it = $e$ >>
++         | x -> Some x ] ] ]
++  ;
++END;

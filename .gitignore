@@ -20,3 +20,5 @@ docs
 .merlin
 */.merlin
 */*/.merlin
+*.orig
+*.rej

@@ -378,7 +378,7 @@ value question ctx bp buf strm =
         ("ANTIQUOT", "?" ^ s)
     | [: :] ->
         match strm with lexer
-        [ ident2! -> keyword_or_error ctx (bp, $pos) $buf ] ]
+        [ hash_follower_chars! -> keyword_or_error ctx (bp, $pos) $buf ] ]
   else if force_antiquot_loc.val then
     match strm with parser
     [ [: `'$'; s = antiquot_loc ctx bp $empty; `':' :] ->
@@ -387,10 +387,10 @@ value question ctx bp buf strm =
         ("ANTIQUOT_LOC", "?" ^ s)
     | [: :] ->
         match strm with lexer
-        [ ident2! -> keyword_or_error ctx (bp, $pos) $buf ] ]
+        [ hash_follower_chars! -> keyword_or_error ctx (bp, $pos) $buf ] ]
   else
     match strm with lexer
-    [ ident2! -> keyword_or_error ctx (bp, $pos) $buf ]
+    [ hash_follower_chars! -> keyword_or_error ctx (bp, $pos) $buf ]
 ;
 
 value tilde ctx bp buf strm =
@@ -402,7 +402,7 @@ value tilde ctx bp buf strm =
         ("ANTIQUOT", "~" ^ s)
     | [: :] ->
         match strm with lexer
-        [ ident2! -> keyword_or_error ctx (bp, $pos) $buf ] ]
+        [ hash_follower_chars! -> keyword_or_error ctx (bp, $pos) $buf ] ]
   else if force_antiquot_loc.val then
     match strm with parser
     [ [: `'$'; s = antiquot_loc ctx bp $empty; `':' :] ->
@@ -411,10 +411,10 @@ value tilde ctx bp buf strm =
         ("ANTIQUOT_LOC", "~" ^ s)
     | [: :] ->
         match strm with lexer
-        [ ident2! -> keyword_or_error ctx (bp, $pos) $buf ] ]
+        [ hash_follower_chars! -> keyword_or_error ctx (bp, $pos) $buf ] ]
   else
     match strm with lexer
-    [ ident2! -> keyword_or_error ctx (bp, $pos) $buf ]
+    [ hash_follower_chars! -> keyword_or_error ctx (bp, $pos) $buf ]
 ;
 
 value tildeident =
@@ -544,6 +544,38 @@ value keyword_or_error_or_rawstring ctx bp (loc,s) buf strm =
     ("STRING", String.escaped s)
 ;
 
+value zerobuf f buf strm =
+  f $empty strm
+;
+
+value rec ws =
+  lexer
+  [ [' '/ | '\t'/ | '\n'/] [ ws | ]
+  ]
+;
+
+value rec extattrident =
+  lexer
+  [ ident [ "." extattrident | ] ]
+;
+
+value quoted_extension1 ctx (bp, _) extid buf strm =
+  let (delim, s) = rawstring0 ctx bp $empty strm in
+  ("QUOTEDEXTENSION", extid^":"^(String.escaped s))
+;
+
+value quoted_extension0 ctx (bp, _) extid =
+  lexer
+  [ ws (zerobuf (quoted_extension1 ctx (bp, $pos) extid))
+  | (zerobuf (quoted_extension1 ctx (bp, $pos) extid))
+  ]
+;
+
+value quoted_extension ctx (bp, _) =
+  lexer [
+    extattrident (zerobuf (quoted_extension0 ctx (bp, $pos) $buf))
+  ]
+;
 value dotsymbolchar = lexer
   [ '!' | '$' | '%' | '&' | '*' | '+' | '-' | '/' | ':' | '=' | '>' | '?' | '@' | '^' | '|' ]
 ;
@@ -620,8 +652,9 @@ value next_token_after_spaces ctx bp =
   | "\""/ (string ctx bp)! -> ("STRING", $buf)
   | "`"/ (qstring ctx bp)! -> ("QUOTATION", "tot:" ^ $buf)
   | "$"/ (dollar ctx bp)!
-  | [ '!' | '=' | '@' | '^' | '&' | '+' | '-' | '*' | '/' | '%' ] ident2! ->
+  | [ '=' | '@' | '^' | '&' | '+' | '-' | '*' | '/' | '%' ] ident2! ->
       keyword_or_error ctx (bp, $pos) $buf
+  | '!' hash_follower_chars! -> keyword_or_error ctx (bp, $pos) $buf
   | "~"/ 'a'-'z' ident! tildeident!
   | "~"/ '_' ident! tildeident!
   | "~" (tilde ctx bp)
@@ -651,6 +684,7 @@ value next_token_after_spaces ctx bp =
   | "[" -> keyword_or_error ctx (bp, $pos) $buf
   | "{" ?= [ "<<" | "<:" ] -> keyword_or_error ctx (bp, $pos) $buf
   | "{<" -> keyword_or_error ctx (bp, $pos) $buf
+  | "{%"/ (zerobuf (quoted_extension ctx (bp, $pos)))
   | "{:" -> keyword_or_error ctx (bp, $pos) $buf
   | "{" (keyword_or_error_or_rawstring ctx bp ((bp, $pos),$buf))
   | ".." -> keyword_or_error ctx (bp, $pos) ".."
@@ -863,6 +897,7 @@ value using_token ctx kwd_table (p_con, p_prm) =
         | _ -> () ]
   | "TILDEIDENT" | "TILDEIDENTCOLON" | "QUESTIONIDENT" |
     "QUESTIONIDENTCOLON" | "INT" | "INT_l" | "INT_L" | "INT_n" | "FLOAT" |
+    "QUOTEDEXTENSION" |
     "CHAR" | "STRING" | "QUOTATION" | "GIDENT" |
     "ANTIQUOT" | "ANTIQUOT_LOC" | "EOI" ->
       ()

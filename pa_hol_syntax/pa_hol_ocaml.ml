@@ -306,6 +306,55 @@ value test_ctyp_minusgreater =
        | _ -> 1 ])
 ;
 
+value is_lbracket_f strm =
+  match Stream.npeek 1 strm with [
+    [("","[") ] -> True
+  | _ -> False
+  ]
+;
+
+value check_lbracket_f strm =
+  if is_lbracket_f strm then () else raise Stream.Failure
+;
+
+value check_lbracket =
+  Grammar.Entry.of_parser gram "check_lbracket"
+    check_lbracket_f
+;
+
+value is_lbracketbar_f strm =
+  match Stream.npeek 1 strm with [
+    [("","[|") ] -> True
+  | _ -> False
+  ]
+;
+
+value check_lbracketbar_f strm =
+  if is_lbracketbar_f strm then () else raise Stream.Failure
+;
+
+value check_lbracketbar =
+  Grammar.Entry.of_parser gram "check_lbracketbar"
+    check_lbracketbar_f
+;
+
+
+value is_lbrace_f strm =
+  match Stream.npeek 1 strm with [
+    [("","{") ] -> True
+  | _ -> False
+  ]
+;
+
+value check_lbrace_f strm =
+  if is_lbrace_f strm then () else raise Stream.Failure
+;
+
+value check_lbrace =
+  Grammar.Entry.of_parser gram "check_lbrace"
+    check_lbrace_f
+;
+
 value is_lident_colon_f strm =
   match Stream.npeek 2 strm with [
     [("LIDENT",_) ; ("",":") :: _] -> True
@@ -370,17 +419,15 @@ value constr_arity = ref [("Some", 1); ("Match_Failure", 1)];
 
 value rec is_expr_constr_call =
   fun
-  [ <:expr< $uid:_$ >> -> True
-  | <:expr< $uid:_$ . $e$ >> -> is_expr_constr_call e
+  [ <:expr< $longid:_$ >> -> True
   | <:expr< $e$ $_$ >> -> is_expr_constr_call e
   | _ -> False ]
 ;
 
 value rec constr_expr_arity loc =
   fun
-  [ <:expr< $uid:c$ >> ->
+  [ <:expr< $uid:c$ >> | <:expr< $longid:_$ . $uid:c$ >> ->
       try List.assoc c constr_arity.val with [ Not_found -> 0 ]
-  | <:expr< $uid:_$ . $e$ >> -> constr_expr_arity loc e
   | _ -> 1 ]
 ;
 
@@ -595,11 +642,19 @@ value merge_right_auxiliary_attrs ~{nonterm_name} ~{left_name} ~{right_name} lef
 ;
 
 value check_dot_uid_f strm =
-  match Stream.npeek 5 strm with [
-    [("",".") ; ("UIDENT",_) :: _] -> ()
-  | [("",".") ; ("","$") ; ("LIDENT",("uid"|"_uid")) ; ("", ":") ; ("LIDENT", _) :: _] -> ()
-  | _ -> raise Stream.Failure
-  ]
+  let rec crec n =
+    match stream_npeek n strm with [
+      [(_, tok) :: _ ] when tok <> "." -> raise Stream.Failure
+    | [("",".") ] -> crec (n+1)
+    | [("",".") ; ("UIDENT",_)] -> ()
+    | [("",".") ; ("ANTIQUOT_LOC",s)]
+      when (match Plexer.parse_antiloc s with [ Some(_, ("uid"|"_uid"), _) -> True | _ -> False ]) -> ()
+    | [("",".") ; ("","$")] -> crec (n+1)
+    | [("",".") ; ("","$") ; ("LIDENT",("uid"|"_uid"))] -> crec (n+1)
+    | [("",".") ; ("","$") ; ("LIDENT",("uid"|"_uid")) ; ("", ":")] -> ()
+    | _ -> raise Stream.Failure
+    ] in
+  crec 1
 ;
 
 value check_dot_uid =
@@ -686,6 +741,20 @@ value uident_True_True_ = fun [
 ]
 ;
 
+value make_string_extension loc s =
+  let colonpos = String.index s ':' in
+  let attrid = String.sub s 0 colonpos in
+  let strpayload = String.sub s (colonpos+1) (String.length s - (colonpos+1)) in
+  <:attribute_body< $attrid:(loc,attrid)$ $str:strpayload$ ; >>
+;
+
+value uident_True_True_ = fun [
+  "True" -> "True_"
+| "False" -> "False_"
+| x -> x
+]
+;
+
 EXTEND
   GLOBAL: sig_item str_item ctyp patt expr module_type
     module_expr longident extended_longident
@@ -760,10 +829,12 @@ EXTEND
   ;
   item_extension:
   [ [ "[%%" ; e = V attribute_body "extension"; "]" -> e
+    | s = QUOTEDEXTENSION -> <:vala< make_string_extension loc s >>
     ] ]
   ;
   alg_extension:
   [ [ "[%" ; e = V attribute_body "extension"; "]" -> e
+    | s = QUOTEDEXTENSION -> <:vala< make_string_extension loc s >>
     ] ]
   ;
   functor_parameter:
@@ -1161,7 +1232,7 @@ MLast.SgMtyAlias loc <:vala< i >> <:vala< li >> attrs
           <:expr< ( $list:[e :: el]$ ) >> ]
     | ":=" NONA
       [ e1 = SELF; ":="; e2 = expr LEVEL "expr1" ->
-          <:expr< $e1$.val := $e2$ >>
+          <:expr< $e1$ . val := $e2$ >>
       | e1 = SELF; "<-"; e2 = expr LEVEL "expr1" -> <:expr< $e1$ := $e2$ >> ]
     | "||" RIGHTA
       [ e1 = SELF; "or"; e2 = SELF -> <:expr< $lid:"or"$ $e1$ $e2$ >>
@@ -1243,11 +1314,14 @@ MLast.SgMtyAlias loc <:vala< i >> <:vala< li >> attrs
       | "lazy"; (ext,attrs) = ext_attributes; e = SELF -> 
           expr_to_inline <:expr< lazy ($e$) >> ext attrs ]
     | "." LEFTA
-      [ e1 = SELF; "."; "("; op = operator_rparen ->
+      [ e1 = SELF; "."; lili = V longident_lident "lilongid" ->
+        <:expr< $e1$ . $_lilongid:lili$ >>
+      | e1 = SELF; "."; "("; op = operator_rparen ->
           if op = "::" then
-            <:expr< $e1$ . $uid:op$ >>
+            Ploc.raise loc (Failure ".(::) (dot paren colon colon paren) cannot appear except after longident")
           else
             <:expr< $e1$ . $lid:op$ >>
+
       | e1 = SELF; "."; "("; e2 = SELF; ")" ->
           if expr_last_is_uid e1 then
             failwith "internal error in original-syntax parser at dot-lparen"
@@ -1267,15 +1341,6 @@ MLast.SgMtyAlias loc <:vala< i >> <:vala< li >> attrs
 
       | e1 = SELF; op = V dotop "dotop"; "{"; el = LIST1 expr LEVEL "+" SEP ";"; "}" ->
           <:expr< $e1$ $_dotop:op$ { $list:el$ } >>
-
-
-      | e1 = SELF; "."; e2 = SELF ->
-          let rec loop m =
-            fun
-            [ <:expr< $x$ . $y$ >> -> loop <:expr< $m$ . $x$ >> y
-            | e -> <:expr< $m$ . $e$ >> ]
-          in
-          loop e1 e2
       ]
 
     | "~-" NONA
@@ -1292,13 +1357,13 @@ MLast.SgMtyAlias loc <:vala< i >> <:vala< li >> attrs
       | s = V STRING -> <:expr< $_str:s$ >>
       | c = V CHAR -> <:expr< $_chr:c$ >>
       | e = alg_extension -> <:expr< [% $_extension:e$ ] >>
-      | UIDENT "True" -> <:expr< True_ >>
+      | UIDENT "True" ->  <:expr< True_ >>
       | UIDENT "False" -> <:expr< False_ >>
       | i = V LIDENT -> <:expr< $_lid:i$ >>
-      | i = expr_uident -> i
-      | "false" -> <:expr< False >>
+      | i = expr_longident -> i
       | "true" -> <:expr< True >>
-      | "["; "]" -> <:expr< [] >>
+      | "false" -> <:expr< False >>
+      | "["; "]" -> <:expr< $uid:"[]"$ >>
       | "["; el = expr1_semi_list; "]" -> <:expr< $mklistexp loc None el$ >>
       | "[|"; "|]" -> <:expr< [| |] >>
       | "[|"; el = V expr1_semi_list "list"; "|]" ->
@@ -1308,7 +1373,7 @@ MLast.SgMtyAlias loc <:vala< i >> <:vala< li >> attrs
       | "{"; e = expr LEVEL "apply"; "with"; lel = V lbl_expr_list "list";
         "}" ->
           <:expr< { ($e$) with $_list:lel$ } >>
-      | "("; ")" -> <:expr< () >>
+      | "("; ")" -> <:expr< $uid:"()"$ >>
       | "("; "module"; me = module_expr; ":"; mt = module_type; ")" ->
           <:expr< (module $me$ : $mt$) >>
       | "("; "module"; me = module_expr; ")" ->
@@ -1324,7 +1389,7 @@ MLast.SgMtyAlias loc <:vala< i >> <:vala< li >> attrs
       | "begin"; (ext,attrs) = ext_attributes; e = SELF; "end" -> 
           expr_to_inline (concat_comm loc <:expr< $e$ >>) ext attrs
       | "begin"; (ext,attrs) = ext_attributes; "end" -> 
-          expr_to_inline <:expr< () >> ext attrs
+          expr_to_inline <:expr< $uid:"()"$ >> ext attrs
       | x = QUOTATION ->
           let con = quotation_content x in
           Pcaml.handle_expr_quotation loc con ] ]
@@ -1478,40 +1543,23 @@ MLast.SgMtyAlias loc <:vala< i >> <:vala< li >> attrs
           (eo, <:expr< $e$ >>)
       ] ]
   ;
-  expr_uident:
-    [ RIGHTA
-      [ i = UIDENT ->
-        let i = uident_True_True_ i in
-        <:expr< $uid:i$ >>
-      | i = UIDENT ; "." ; j = SELF -> expr_left_assoc_acc <:expr< $uid:i$ . $j$ >>
-      | i = UIDENT ; "." ; "("; op = operator_rparen ->
+  expr_longident:
+    [
+      [ li = longident -> <:expr< $longid:li$ >>
+      | li = longident ; "." ; "("; op = operator_rparen ->
           if op = "::" then
-            <:expr< $uid:i$ . $uid:op$ >>
+            <:expr< $longid:li$ . $uid:op$ >>
           else
-            <:expr< $uid:i$ . $lid:op$ >>
-      | i = UIDENT ; "." ; j = LIDENT ->
-          <:expr< $uid:i$ . $lid:j$ >>
-      | i = UIDENT ; "."; "("; e2 = expr; ")" ->
-            <:expr< $uid:i$ . $e2$ >>
+            <:expr< $longid:li$ . $lid:op$ >>
 
-
-      | i = UIDENT ; "."; "{"; test_label_eq ; lel = V lbl_expr_list "list"; "}" ->
-          let e2 = <:expr< { $_list:lel$ } >> in
-          <:expr< $uid:i$ . $e2$ >>
-
-      | i = UIDENT ; "."; "{"; e = expr LEVEL "apply"; "with"; lel = V lbl_expr_list "list";
-        "}" ->
-          let e2 = <:expr< { ($e$) with $_list:lel$ } >> in
-          <:expr< $uid:i$ . $e2$ >>
-
-      | i = UIDENT ; "."; "["; "]" ->
-          let e2 = <:expr< [] >> in
-          <:expr< $uid:i$ . $e2$ >>
-      | i = UIDENT ; "."; "["; el = expr1_semi_list; "]" ->
-          let e2 = <:expr< $mklistexp loc None el$ >> in
-          <:expr< $uid:i$ . $e2$ >>
-
-      ] ]
+      | li = longident ; "." ; "(" ; e = expr ; ")" -> <:expr< $longid:li$ . ( $e$ ) >>
+      | li = longident ; "." ; id = V LIDENT "lid" ->
+        <:expr< $longid:li$ . $_lid:id$ >>
+      | li = longident ; "." ; check_lbracket ; e = expr LEVEL "simple" -> <:expr< $longid:li$ . ( $e$ ) >>
+      | li = longident ; "." ; check_lbrace ; e = expr LEVEL "simple" -> <:expr< $longid:li$ . ( $e$ ) >>
+      | li = longident ; "." ; check_lbracketbar ; e = expr LEVEL "simple" -> <:expr< $longid:li$ . ( $e$ ) >>
+      ]
+    ]
   ;
   (* Patterns *)
   patt_ident: [
@@ -1737,9 +1785,19 @@ MLast.SgMtyAlias loc <:vala< i >> <:vala< li >> attrs
       | "("; tpl = LIST1 type_parameter SEP ","; ")" -> tpl ] ]
   ;
   type_parameter:
-    [ [ "+"; p = V simple_type_parameter -> (p, Some True)
-      | "-"; p = V simple_type_parameter -> (p, Some False)
-      | p = V simple_type_parameter -> (p, None) ] ]
+    [ [ "+"; p = V simple_type_parameter -> (p, (Some True, False))
+      | "+"; "!" ; p = V simple_type_parameter -> (p, (Some True, True))
+      | "-"; p = V simple_type_parameter -> (p, (Some False, False))
+      | "-"; "!" ; p = V simple_type_parameter -> (p, (Some False, True))
+      | "!" ; p = V simple_type_parameter -> (p, (None, True))
+      | "!" ; "+" ; p = V simple_type_parameter -> (p, (Some True, True))
+      | "!" ; "-" ; p = V simple_type_parameter -> (p, (Some False, True))
+      | "!+" ; p = V simple_type_parameter -> (p, (Some True, True))
+      | "+!" ; p = V simple_type_parameter -> (p, (Some True, True))
+      | "!-" ; p = V simple_type_parameter -> (p, (Some False, True))
+      | "-!" ; p = V simple_type_parameter -> (p, (Some False, True))
+      | p = V simple_type_parameter -> (p, (None, False))
+      ] ]
   ;
   simple_type_parameter:
     [ [ "'"; i = ident -> Some i
